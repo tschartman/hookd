@@ -13,16 +13,23 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hookdmusic.app",
+      "entitlements": {
+        "com.apple.developer.music-kit": true
+      },
+      "infoPlist": {
+        "NSAppleMusicUsageDescription": "HOOKD uses Apple Music to export your discovered playlists.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0A0A0A"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.hookdmusic.app"
     },
     "web": {
       "bundler": "metro",
@@ -32,10 +39,17 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-image"
+      "expo-dev-client"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "73115b3f-3f88-437e-88ac-3e4b705ae685"
+      }
+    },
+    "owner": "tschartman"
   }
 }
