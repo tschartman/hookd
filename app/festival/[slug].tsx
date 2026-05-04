@@ -1,12 +1,13 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { SlidersHorizontal } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Animated, InteractionManager, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFestivalCacheStore } from '@/src/stores/festivalCacheStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import FestivalControls from '@/src/components/FestivalControls';
+import FestivalFilterSheet from '@/src/components/FestivalFilterSheet';
 import FestivalFeedMode, { type FeedMode } from '@/src/components/FestivalFeedMode';
 import SwipeFeed from '@/src/components/SwipeFeed';
 import VibePill from '@/src/components/VibePill';
@@ -27,8 +28,6 @@ import { usePlayerStore } from '@/src/stores/playerStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** Height of the controls panel (slider + genre chips). */
-const CONTROLS_HEIGHT = 86;
 /** Height of the FestivalFeedMode row (mode label + bar + vertical padding). */
 const PROGRESS_BAR_HEIGHT = 42;
 
@@ -300,6 +299,11 @@ export default function FestivalScreen() {
   const [sliderValue, setSliderValue]   = useState(0.25);
   const [activeGenres, setActiveGenres] = useState<Set<string> | null>(null);
   const [allGenres, setAllGenres]       = useState<string[]>([]);
+
+  // ── Filter sheet ──────────────────────────────────────────────────────────
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+
+  const hasActiveFilter = activeGenres !== null || Math.abs(sliderValue - 0.25) > 0.01;
   const genresSetRef = useRef<Set<string>>(new Set());
 
   // Keep refs in sync so useFocusEffect cleanup captures current values
@@ -765,14 +769,14 @@ export default function FestivalScreen() {
 
   // ── Feed screen ───────────────────────────────────────────────────────────
   const BANNER_HEIGHT = 52 + insets.top;
-  const FEED_TOP      = BANNER_HEIGHT + CONTROLS_HEIGHT + PROGRESS_BAR_HEIGHT;
+  const FEED_TOP      = BANNER_HEIGHT + PROGRESS_BAR_HEIGHT;
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
         {/* Feed — sits below banner + controls */}
-        <View style={[styles.feedWrapper, { paddingTop: FEED_TOP }]}>
+        <View style={[styles.feedWrapper, { paddingTop: FEED_TOP, paddingBottom: insets.bottom }]}>
           <SwipeFeed
             tracks={queue}
             savedTrackIds={savedTrackIds}
@@ -791,42 +795,10 @@ export default function FestivalScreen() {
             onSkip={addSkip}
             tabBarHeight={0}
             topOffset={FEED_TOP}
-            bottomPadding={insets.bottom + 16}
+            bottomPadding={16}
             initialScrollIndex={feedInitialIndex > 0 ? feedInitialIndex : undefined}
             onVisibleItemChanged={handleVisibleItemChanged}
           />
-
-          {/* Hero intro card — fades in on load, auto-dismisses after 2.8s */}
-          {heroVisible && (
-            <Animated.View
-              style={[styles.heroOverlay, { opacity: heroOpacity }]}
-              pointerEvents="box-none"
-            >
-              <Pressable onPress={dismissHero} style={styles.heroCard}>
-                <LinearGradient
-                  colors={[festival.imageColors?.primary ?? '#1DB954', festival.imageColors?.secondary ?? '#0A0A0A']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.heroGradient}
-                >
-                  <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.75)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={StyleSheet.absoluteFillObject}
-                  />
-                  <View style={styles.heroContent}>
-                    <Text style={styles.heroName}>{festival.name}</Text>
-                    <Text style={styles.heroMeta}>{festival.dates}</Text>
-                    <Text style={styles.heroMeta}>{festival.location}</Text>
-                    <Text style={styles.heroCta}>
-                      {festival.artists.length} artists · Swipe to discover ›
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </Pressable>
-            </Animated.View>
-          )}
 
           {/* Vibe overlays — positioned inside feedWrapper so they clear the banner */}
 
@@ -858,40 +830,32 @@ export default function FestivalScreen() {
             <Text style={styles.bannerBackText}>‹</Text>
           </Pressable>
 
+          {/* Filter toggle — left of title, matching MissionTopBar pattern */}
+          <Pressable
+            onPress={() => { setFilterSheetVisible(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            hitSlop={8}
+            style={styles.filterToggleBtn}
+          >
+            <SlidersHorizontal
+              size={18}
+              color={hasActiveFilter ? '#1DB954' : 'rgba(255,255,255,0.55)'}
+            />
+            {hasActiveFilter && <View style={styles.filterDot} />}
+          </Pressable>
+
           <View style={styles.bannerCenter}>
             <Text style={styles.bannerTitle} numberOfLines={1}>
               {festival.name}
             </Text>
-            <View style={styles.bannerSubRow}>
-              <Text style={styles.bannerSub}>
-                {heardArtists.size > 0
-                  ? `${heardArtists.size} of ${festival.artists.length} artists heard`
-                  : `${festival.artists.length} artists · ${queue.length} tracks`}
-              </Text>
-              {heardArtists.size > 0 && (
-                <Pressable onPress={handleStartOver} hitSlop={8}>
-                  <Text style={styles.resetLink}>↺ Reset</Text>
-                </Pressable>
-              )}
-            </View>
+            <Text style={styles.bannerSub} numberOfLines={1}>
+              {festival.location}
+              {festival.dates ? ` · ${festival.dates}` : ''}
+            </Text>
           </View>
-
         </View>
 
-        {/* Controls panel — below banner */}
-        <View style={[styles.controlsPanel, { top: BANNER_HEIGHT }]}>
-          <FestivalControls
-            sliderValue={sliderValue}
-            onSliderChange={setSliderValue}
-            genres={allGenres}
-            activeGenres={activeGenres}
-            onGenreToggle={handleGenreToggle}
-            onAllGenres={handleAllGenres}
-          />
-        </View>
-
-        {/* Mode indicator + progress bar — below controls */}
-        <View style={[styles.progressBarPanel, { top: BANNER_HEIGHT + CONTROLS_HEIGHT }]}>
+        {/* Mode indicator + progress bar — directly below banner, static position */}
+        <View style={[styles.progressBarPanel, { top: BANNER_HEIGHT }]}>
           <FestivalFeedMode
             mode={feedMode}
             artistsExplored={artistsExplored}
@@ -899,6 +863,52 @@ export default function FestivalScreen() {
             onToggleMode={handleToggleMode}
           />
         </View>
+
+        {/* Hero intro card — anchored to bottom of container, above action bar area */}
+        {heroVisible && (
+          <Animated.View
+            style={[styles.heroOverlay, { opacity: heroOpacity, bottom: insets.bottom + 90 }]}
+            pointerEvents="box-none"
+          >
+            <Pressable onPress={dismissHero} style={styles.heroCard}>
+              <LinearGradient
+                colors={[festival.imageColors?.primary ?? '#1DB954', festival.imageColors?.secondary ?? '#0A0A0A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroGradient}
+              >
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.75)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <View style={styles.heroContent}>
+                  <Text style={styles.heroName}>{festival.name}</Text>
+                  <Text style={styles.heroMeta}>{festival.dates}</Text>
+                  <Text style={styles.heroMeta}>{festival.location}</Text>
+                  <Text style={styles.heroCta}>
+                    {festival.artists.length} artists · Swipe to discover ›
+                  </Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* Filter bottom sheet */}
+        <FestivalFilterSheet
+          visible={filterSheetVisible}
+          sliderValue={sliderValue}
+          onSliderChange={setSliderValue}
+          genres={allGenres}
+          activeGenres={activeGenres}
+          onGenreToggle={handleGenreToggle}
+          onAllGenres={handleAllGenres}
+          onClose={() => setFilterSheetVisible(false)}
+          onResetProgress={handleStartOver}
+          canResetProgress={heardArtists.size > 0}
+        />
 
       </View>
     </>
@@ -1018,32 +1028,29 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  filterToggleBtn: {
+    padding: 6,
+    position: 'relative',
+  },
+  filterDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#1DB954',
+  },
   bannerTitle: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
-  bannerSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   bannerSub: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 11,
     fontFamily: 'SpaceMono',
-  },
-  resetLink: {
-    color: 'rgba(255,100,100,0.7)',
-    fontSize: 11,
-    fontFamily: 'SpaceMono',
-  },
-  // Controls panel
-  controlsPanel: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
   },
   progressBarPanel: {
     position: 'absolute',
@@ -1055,7 +1062,6 @@ const styles = StyleSheet.create({
   // Hero intro card
   heroOverlay: {
     position: 'absolute',
-    bottom: 120,
     left: 16,
     right: 16,
     zIndex: 20,

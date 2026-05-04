@@ -206,30 +206,9 @@ function DiscoveryLibrary({ onLogout }: { onLogout: () => void }) {
               <Text style={styles.serviceIconText}>♪</Text>
             </View>
             <Text style={styles.serviceName}>Apple Music</Text>
-            {appleMusicConnected ? (
-              <Pressable
-                onPress={disconnectAppleMusic}
-                style={({ pressed }) => [styles.disconnectBtn, pressed && { opacity: 0.7 }]}
-              >
-                <Text style={styles.disconnectBtnText}>Disconnect</Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                onPress={connectAppleMusic}
-                disabled={appleMusicConnecting}
-                style={({ pressed }) => [
-                  styles.connectBtn,
-                  pressed && { opacity: 0.75 },
-                  appleMusicConnecting && { opacity: 0.5 },
-                ]}
-              >
-                {appleMusicConnecting ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <Text style={styles.connectBtnText}>Connect</Text>
-                )}
-              </Pressable>
-            )}
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Coming Soon</Text>
+            </View>
           </View>
 
           {/* YouTube Music */}
@@ -238,20 +217,9 @@ function DiscoveryLibrary({ onLogout }: { onLogout: () => void }) {
               <Text style={styles.serviceIconText}>▶</Text>
             </View>
             <Text style={styles.serviceName}>YouTube Music</Text>
-            {youtubeMusicConnected ? (
-              <Pressable
-                onPress={disconnectYouTubeMusic}
-                style={({ pressed }) => [styles.disconnectBtn, pressed && { opacity: 0.7 }]}
-              >
-                <Text style={styles.disconnectBtnText}>Disconnect</Text>
-              </Pressable>
-            ) : YOUTUBE_AUTH_CONFIGURED ? (
-              <YouTubeMusicConnectButton onSuccess={onYouTubeAuthSuccess} />
-            ) : (
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonText}>Coming Soon</Text>
-              </View>
-            )}
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Coming Soon</Text>
+            </View>
           </View>
         </View>
       </View>

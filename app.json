@@ -15,11 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hookdmusic.app",
-      "entitlements": {
-        "com.apple.developer.music-kit": true
-      },
       "infoPlist": {
-        "NSAppleMusicUsageDescription": "HOOKD uses Apple Music to export your discovered playlists.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -38,8 +34,7 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
-      "expo-dev-client"
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

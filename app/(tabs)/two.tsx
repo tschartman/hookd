@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,7 +35,7 @@ type SortMode = 'popular' | 'upcoming';
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
 
-  const { festivals: allFestivals, isLoading } = useFestivals();
+  const { festivals: allFestivals, isLoading, error: festivalsError, retry: retryFestivals } = useFestivals();
 
   const [search, setSearch]           = useState('');
   const [selectedGenres, setSelected] = useState<Set<string>>(new Set());
@@ -162,6 +163,18 @@ export default function ExploreScreen() {
     );
   }
 
+  if (festivalsError || (!isLoading && allFestivals.length === 0)) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Text style={styles.errorTitle}>Couldn't load festivals</Text>
+        <Text style={styles.errorSub}>Check your connection and try again</Text>
+        <Pressable onPress={retryFestivals} style={styles.retryBtn}>
+          <Text style={styles.retryBtnText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
 
@@ -246,6 +259,7 @@ export default function ExploreScreen() {
           data={filtered}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={ListHeader}
+          ListFooterComponent={<RequestFestivalFooter />}
           renderItem={({ item }) => (
             <FestivalCard festival={item} isPast={isPastFestival(item)} />
           )}
@@ -257,6 +271,76 @@ export default function ExploreScreen() {
   );
 }
 
+// ─── Request festival footer ──────────────────────────────────────────────────
+
+function RequestFestivalFooter() {
+  const handleRequest = useCallback(() => {
+    const subject = encodeURIComponent('HOOKD — Festival Request');
+    const body = encodeURIComponent(
+      'Festival name:\n\nDates:\n\nLocation:\n\nWebsite:\n\nAnything else:\n',
+    );
+    Linking.openURL(`mailto:tschartman@yahoo.com?subject=${subject}&body=${body}`);
+  }, []);
+
+  return (
+    <View style={requestStyles.container}>
+      <View style={requestStyles.divider} />
+      <Text style={requestStyles.heading}>Don't see your festival?</Text>
+      <Text style={requestStyles.sub}>
+        Request it and we'll add it to the lineup.
+      </Text>
+      <Pressable
+        onPress={handleRequest}
+        style={({ pressed }) => [requestStyles.btn, pressed && { opacity: 0.8 }]}
+      >
+        <Text style={requestStyles.btnText}>Request a Festival</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const requestStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  divider: {
+    width: 40,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 12,
+  },
+  heading: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  sub: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  btn: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 50,
+    paddingHorizontal: 24,
+    paddingVertical: 11,
+  },
+  btnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
+});
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -267,6 +351,31 @@ const styles = StyleSheet.create({
   centered: {
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 32,
+  },
+  errorTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  errorSub: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: 8,
+    backgroundColor: '#1DB954',
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 50,
+  },
+  retryBtnText: {
+    color: '#000',
+    fontSize: 15,
+    fontWeight: '700',
   },
 
   // Sticky bar (always visible at top)

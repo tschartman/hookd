@@ -2,7 +2,7 @@
 // Fetches festival data exclusively from Supabase.
 // No hardcoded fallback — only festivals in the database are shown.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { type Festival, type FestivalArtist, type ArtistTier } from '@/src/data/festivals';
 import { supabase } from '@/src/services/supabase';
@@ -41,6 +41,7 @@ interface SupabaseArtist {
 /** Loaded festivals, keyed by slug. Null means not yet fetched. */
 const cache = new Map<string, Festival>();
 let fetchPromise: Promise<void> | null = null;
+let fetchFailed = false;
 /** Listeners notified when the fetch completes. */
 const listeners = new Set<() => void>();
 
@@ -72,26 +73,35 @@ function transformFestival(row: SupabaseFestival): Festival {
 }
 
 async function fetchFromSupabase(): Promise<void> {
-  const { data, error } = await supabase
-    .from('festivals')
-    .select(`
-      id, name, slug, dates, location, description,
-      genre_tags, estimated_attendance,
-      image_color_primary, image_color_secondary,
-      year, active, start_date, end_date, poster_url,
-      festival_artists ( id, name, tier, genres )
-    `)
-    .eq('active', true);
+  try {
+    const { data, error } = await supabase
+      .from('festivals')
+      .select(`
+        id, name, slug, dates, location, description,
+        genre_tags, estimated_attendance,
+        image_color_primary, image_color_secondary,
+        year, active, start_date, end_date, poster_url,
+        festival_artists ( id, name, tier, genres )
+      `)
+      .eq('active', true);
 
-  if (!error && data) {
-    cache.clear();
-    for (const row of data as SupabaseFestival[]) {
-      cache.set(row.slug, transformFestival(row));
+    if (!error && data) {
+      cache.clear();
+      fetchFailed = false;
+      for (const row of data as SupabaseFestival[]) {
+        cache.set(row.slug, transformFestival(row));
+      }
+    } else {
+      fetchFailed = true;
+      console.warn('[festival] Supabase fetch error:', error?.message);
     }
+  } catch (err) {
+    fetchFailed = true;
+    console.warn('[festival] Supabase fetch threw:', err);
+  } finally {
+    listeners.forEach((fn) => fn());
+    listeners.clear();
   }
-
-  listeners.forEach((fn) => fn());
-  listeners.clear();
 }
 
 /** Trigger the Supabase fetch exactly once per session. */
@@ -100,6 +110,12 @@ function ensureFetched(): Promise<void> {
     fetchPromise = fetchFromSupabase();
   }
   return fetchPromise;
+}
+
+/** Reset the fetch state so the next ensureFetched() call re-fetches. */
+function resetFetch(): void {
+  fetchPromise = null;
+  fetchFailed = false;
 }
 
 function isFetched(): boolean {
@@ -112,16 +128,25 @@ function isFetched(): boolean {
  * Returns all active festivals from Supabase.
  * Shows a loading state until the first fetch completes.
  */
-export function useFestivals(): { festivals: Festival[]; isLoading: boolean } {
+export function useFestivals(): { festivals: Festival[]; isLoading: boolean; error: boolean; retry: () => void } {
   const [festivals, setFestivals] = useState<Festival[]>([]);
   const [isLoading, setIsLoading] = useState(!isFetched());
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
+    setIsLoading(true);
+    setError(false);
 
     ensureFetched().then(() => {
       if (!cancelled) {
         setFestivals([...cache.values()]);
+        setError(fetchFailed);
+        setIsLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setError(true);
         setIsLoading(false);
       }
     });
@@ -129,7 +154,17 @@ export function useFestivals(): { festivals: Festival[]; isLoading: boolean } {
     return () => { cancelled = true; };
   }, []);
 
-  return { festivals, isLoading };
+  useEffect(() => {
+    return load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const retry = useCallback(() => {
+    resetFetch();
+    load();
+  }, [load]);
+
+  return { festivals, isLoading, error, retry };
 }
 
 // ─── Resolved-track catalog ───────────────────────────────────────────────────
